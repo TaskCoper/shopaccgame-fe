@@ -653,8 +653,8 @@ export default function App() {
   }, [accounts, isBootstrapped, location.pathname, navigate, setActiveView, isAdmin]);
 
   const handleLogout = () => {
-    logout();
-    navigate("/");
+    logout(); 
+    window.location.href = "/";
   };
 
   const handleLoginSuccess = (
