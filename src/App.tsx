@@ -342,12 +342,8 @@ export default function App() {
   const [isSpinning, setIsSpinning] = useState<boolean>(false);
 
   // Banner Intro Animation states
-  const [showBannerIntro, setShowBannerIntro] = useState(() => {
-    if (typeof window !== "undefined") {
-      return pathToView(window.location.pathname) === "home";
-    }
-    return true;
-  });
+  const [showBannerIntro, setShowBannerIntro] = useState(false);
+
   const [bannerIntroShrink, setBannerIntroShrink] = useState(false);
   const [bannerRect, setBannerRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
