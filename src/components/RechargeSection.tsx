@@ -297,7 +297,7 @@ export default function RechargeSection({
               )}
 
               <button
-                type="submit"
+                type="button"
                 disabled={isRecharging}
                 className={`w-full font-black py-3 px-4 rounded-xl shadow-lg border-y-2 border-amber-300 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 ${isRecharging
                   ? "bg-stone-700 text-stone-400 border-none cursor-not-allowed"
