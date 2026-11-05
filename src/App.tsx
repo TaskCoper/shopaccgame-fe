@@ -31,8 +31,7 @@ import ToastContainer from "./components/ToastContainer";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { useToastStore } from "./store/useToastStore";
 import { AppView, useAuthStore } from "./store/useAuthStore";
-import heroBannerMp4 from "./assets/images/enhanced_final.mp4";
-import heroBannerPoster from "./assets/images/final.gif";
+import heroBannerMp4 from "./assets/images/hero-banner.mp4";
 
 import {
   Trophy,
@@ -1453,7 +1452,6 @@ export default function App() {
                 <video
                   ref={videoBannerRef}
                   src={heroBannerMp4}
-                  poster={heroBannerPoster}
                   autoPlay
                   muted
                   loop
