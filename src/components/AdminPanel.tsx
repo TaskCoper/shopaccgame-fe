@@ -169,6 +169,8 @@ export default function AdminPanel({
   // Search filter states
   const [txSearch, setTxSearch] = useState("");
   const [accSearch, setAccSearch] = useState("");
+  // Chart doanh thu: "recent" = 6 tháng gần nhất, hoặc "YYYY-Qn" để xem theo quý
+  const [revenueRange, setRevenueRange] = useState("recent");
 
   // Transaction filters
   const [txPriceRange, setTxPriceRange] = useState<string>("All");
@@ -899,13 +901,35 @@ export default function AdminPanel({
     if (monthlyRevenueData[prevMonthStr] === undefined) monthlyRevenueData[prevMonthStr] = 0;
   }
 
-  const sortedMonths = Object.keys(monthlyRevenueData).sort((a, b) => {
+  const allSortedMonths = Object.keys(monthlyRevenueData).sort((a, b) => {
     const [ma, ya] = a.split("/").map(Number);
     const [mb, yb] = b.split("/").map(Number);
     return ya !== yb ? ya - yb : ma - mb;
   });
 
-  const maxRevenue = Math.max(...Object.values(monthlyRevenueData), 100000);
+  // Danh sách quý có dữ liệu (mới nhất trước), dùng cho bộ chọn của chart
+  const quarterKeyOf = (monthKey: string) => {
+    const [mm, yy] = monthKey.split("/").map(Number);
+    return `${yy}-Q${Math.ceil(mm / 3)}`;
+  };
+  const revenueQuarters = Array.from(new Set(allSortedMonths.map(quarterKeyOf))).reverse();
+  const activeRevenueRange = revenueQuarters.includes(revenueRange) ? revenueRange : "recent";
+
+  let sortedMonths: string[];
+  if (activeRevenueRange === "recent") {
+    sortedMonths = allSortedMonths.slice(-6);
+  } else {
+    // Hiện đủ 3 tháng của quý (tháng không có doanh thu = 0), bỏ qua tháng ở tương lai
+    const [yearStr, qStr] = activeRevenueRange.split("-Q");
+    const firstMonth = (Number(qStr) - 1) * 3 + 1;
+    const nowYM = new Date().getFullYear() * 12 + new Date().getMonth();
+    sortedMonths = [0, 1, 2]
+      .map((k) => firstMonth + k)
+      .filter((mm) => Number(yearStr) * 12 + (mm - 1) <= nowYM)
+      .map((mm) => `${mm < 10 ? "0" + mm : mm}/${yearStr}`);
+  }
+
+  const maxRevenue = Math.max(...sortedMonths.map((m) => monthlyRevenueData[m] || 0), 100000);
 
   // 2. Sales Status Ratio (Available vs. Sold)
   const soldCount = accounts.filter((a) => a.status === "Sold").length;
@@ -1101,7 +1125,22 @@ export default function AdminPanel({
                       <TrendingUp className="w-4 h-4 text-emerald-400" />
                       Doanh thu cửa hàng theo tháng
                     </h5>
-                    <span className="text-[10px] text-stone-400 font-bold uppercase">Biểu đồ cột</span>
+                    <select
+                      value={activeRevenueRange}
+                      onChange={(e) => setRevenueRange(e.target.value)}
+                      aria-label="Chọn khoảng thời gian doanh thu"
+                      className="bg-red-950/60 text-stone-100 text-[10px] font-bold uppercase rounded-lg border border-amber-500/30 px-2 py-1 outline-none focus:border-amber-400 cursor-pointer"
+                    >
+                      <option value="recent">6 tháng gần nhất</option>
+                      {revenueQuarters.map((q) => {
+                        const [y, qn] = q.split("-");
+                        return (
+                          <option key={q} value={q}>
+                            {qn} / {y}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
 
                   <div className="flex justify-center items-center py-2 bg-red-950/20 rounded-2xl border border-amber-500/5">
@@ -1118,11 +1157,22 @@ export default function AdminPanel({
                       {sortedMonths.map((m, i) => {
                         const val = monthlyRevenueData[m] || 0;
                         const colHeight = maxRevenue > 0 ? (val / maxRevenue) * 110 : 0;
-                        const colWidth = 45;
-                        const gap = 40;
-                        const startX = 80;
-                        const x = startX + i * (colWidth + gap);
+                        // Chia đều vùng vẽ (x: 40 -> 380) theo số tháng để cột không bị tràn
+                        const plotLeft = 40;
+                        const plotWidth = 340;
+                        const slotWidth = plotWidth / sortedMonths.length;
+                        const colWidth = Math.min(45, slotWidth * 0.6);
+                        const x = plotLeft + i * slotWidth + (slotWidth - colWidth) / 2;
                         const y = 150 - colHeight;
+                        // Slot hẹp thì rút gọn nhãn (850k, 1.2tr) để không đè lên nhau
+                        const valLabel =
+                          slotWidth >= 70
+                            ? `${val.toLocaleString()}đ`
+                            : val >= 1_000_000
+                              ? `${(val / 1_000_000).toFixed(1).replace(/\.0$/, "")}tr`
+                              : val >= 1_000
+                                ? `${Math.round(val / 1_000)}k`
+                                : `${val}`;
 
                         return (
                           <g key={m} className="group cursor-pointer">
@@ -1143,7 +1193,7 @@ export default function AdminPanel({
                               textAnchor="middle"
                               className="fill-stone-200 font-mono font-bold text-[9px]"
                             >
-                              {val.toLocaleString()}đ
+                              {valLabel}
                             </text>
                             {/* X-axis label */}
                             <text
