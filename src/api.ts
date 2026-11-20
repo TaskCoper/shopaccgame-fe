@@ -100,9 +100,62 @@ export const uploadImage = async (file: File, folder = "general"): Promise<strin
     params: { contentType: file.type, fileName: file.name, folder },
   });
 
-  await axios.put(presigned.presignedUrl, file, {
-    headers: { "Content-Type": presigned.contentType },
-  });
+  await putToPresignedUrl(presigned, file);
 
   return presigned.fileUrl;
+};
+
+/** PUT raw binary lên presigned URL bằng axios "trần" (không gắn Authorization/JSON). */
+const putToPresignedUrl = (
+  presigned: PresignedUploadDto,
+  file: File,
+  onProgress?: (percent: number) => void
+) =>
+  axios.put(presigned.presignedUrl, file, {
+    headers: { "Content-Type": presigned.contentType },
+    onUploadProgress: onProgress
+      ? (e) => {
+          if (e.total) onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      : undefined,
+  });
+
+// ===== Upload banner trang chủ (ảnh hoặc video) =====
+
+export type BannerType = "image" | "video";
+
+/** Định dạng banner backend chấp nhận (khớp BizFlyStorageService.AllowedBannerTypes). */
+export const ALLOWED_BANNER_TYPES = [...ALLOWED_IMAGE_TYPES, "video/mp4", "video/webm"];
+/** Dung lượng banner tối đa: 50MB (khớp BizFlyStorageService.MaxBannerBytes). */
+export const MAX_BANNER_BYTES = 50 * 1024 * 1024;
+
+/** Suy ra loại banner từ MIME của file; null nếu không được hỗ trợ. */
+export const bannerTypeOf = (file: File): BannerType | null => {
+  if (!ALLOWED_BANNER_TYPES.includes(file.type)) return null;
+  return file.type.startsWith("video/") ? "video" : "image";
+};
+
+/**
+ * Upload banner (chỉ Admin) theo flow presigned URL: xin URL ở /storage/banner-presigned-url,
+ * PUT file thẳng lên cloud, trả về url công khai + loại banner để gửi tiếp vào PUT /settings/banner.
+ */
+export const uploadBanner = async (
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ url: string; type: BannerType }> => {
+  const type = bannerTypeOf(file);
+  if (!type) {
+    throw new Error("Định dạng banner không hợp lệ. Chỉ chấp nhận JPEG, PNG, WEBP, GIF, MP4, WEBM.");
+  }
+  if (file.size > MAX_BANNER_BYTES) {
+    throw new Error("Banner vượt quá dung lượng tối đa 50MB.");
+  }
+
+  const presigned = await api.get<PresignedUploadDto>("/storage/banner-presigned-url", {
+    params: { contentType: file.type, fileName: file.name },
+  });
+
+  await putToPresignedUrl(presigned, file, onProgress);
+
+  return { url: presigned.fileUrl, type };
 };

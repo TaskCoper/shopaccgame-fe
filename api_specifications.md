@@ -431,3 +431,43 @@ Tài liệu này đặc tả tất cả các API cần thiết để vận hành
 }
 
 ```
+
+### 6.5 Đặt lại mật khẩu cho user (khi user quên mật khẩu)
+* **Endpoint**: `POST /api/admin/users/{id}/reset-password`
+* **Headers**: `Authorization: Bearer <token>` (Role Admin)
+* **Body**: không có.
+* **Mô tả**: Sinh mật khẩu ngẫu nhiên (10 ký tự, có chữ hoa/thường/số, bỏ ký tự dễ nhầm `0/O/1/l/I`), lưu bản băm và trả mật khẩu plaintext **đúng một lần** trong response (header `Cache-Control: no-store`). Admin gửi cho user, user đăng nhập rồi tự đổi ở mục Đổi mật khẩu (mục 1.4). Không áp dụng cho tài khoản có Role Admin.
+* **Response (Success - 200)**:
+```json
+{
+  "message": "Đã đặt lại mật khẩu cho hoang_gamer99.",
+  "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "email": "hoang_gamer99",
+  "newPassword": "Kq7mT3xPwd"
+}
+```
+* **Response (Lỗi)**: `404` không tìm thấy user; `403` mục tiêu là tài khoản Admin.
+
+### 6.6 Đổi banner trang chủ
+Banner không còn cố định trong source; `GET /api/settings` trả thêm `bannerUrl` / `bannerType` (`image` | `video` | rỗng = dùng banner mặc định của frontend).
+
+**Bước 1 — Xin presigned URL upload banner**
+* **Endpoint**: `GET /api/storage/banner-presigned-url?contentType=video/mp4&fileName=banner.mp4`
+* **Headers**: `Authorization: Bearer <token>` (Role Admin)
+* **Content-Type cho phép**: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `video/mp4`, `video/webm` (tối đa 50MB — backend chỉ khuyến nghị, client tự kiểm tra).
+* **Response (Success - 200)**: giống `GET /api/storage/presigned-url` (`presignedUrl`, `key`, `fileUrl`, `contentType`, ...). Client `PUT` raw binary lên `presignedUrl` với đúng header `Content-Type`.
+
+**Bước 2 — Lưu banner**
+* **Endpoint**: `PUT /api/settings/banner`
+* **Headers**: `Authorization: Bearer <token>` (Role Admin)
+* **Body**:
+```json
+{
+  "bannerUrl": "https://.../banners/2026/11/abc123.mp4",
+  "bannerType": "video"
+}
+```
+  - `bannerUrl` phải là URL `http/https`; để rỗng (`""`) để khôi phục banner mặc định.
+  - `bannerType` bắt buộc là `image` hoặc `video` khi có `bannerUrl`.
+* **Response (Success - 200)**: `{ "message": "Cập nhật banner thành công!", "settings": { ... , "bannerUrl": "...", "bannerType": "video" } }`
+* **Lưu ý**: `PUT /api/settings` (lưu nội dung/footer) **không** thay đổi banner.

@@ -209,9 +209,11 @@ export default function App() {
   });
 
   // 7. Get system settings (web content config)
-  const { data: apiSettings } = useQuery({
+  const { data: apiSettings, isPending: settingsPending } = useQuery({
     queryKey: ["systemSettings"],
     queryFn: () => api.get<{
+      bannerUrl?: string;
+      bannerType?: string;
       tickerNews: string;
       atmBank: string;
       atmAccountNumber: string;
@@ -322,6 +324,17 @@ export default function App() {
       if (apiSettings.footerCopyright) setFooterCopyright(apiSettings.footerCopyright);
     }
   }, [apiSettings]);
+
+  // Hero banner do admin cấu hình (ảnh hoặc video). Chưa cấu hình / file lỗi => dùng banner mặc định đi kèm app.
+  const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
+  useEffect(() => {
+    setBannerLoadFailed(false);
+  }, [apiSettings?.bannerUrl]);
+  const customBannerUrl = apiSettings?.bannerUrl && !bannerLoadFailed ? apiSettings.bannerUrl : "";
+  const bannerIsImage = !!customBannerUrl && apiSettings?.bannerType === "image";
+  const bannerVideoSrc = customBannerUrl && !bannerIsImage ? customBannerUrl : heroBannerMp4;
+  // Chờ tải xong cấu hình mới render banner để không nháy banner mặc định trước khi đổi sang banner của admin.
+  const showBannerVideo = !settingsPending && !bannerIsImage;
 
   // Filtering states in the Home Catalog
   const [selectedCategory, setSelectedCategory] = useState<string>("Tất cả");
@@ -588,6 +601,7 @@ export default function App() {
   // autoplay (desktop is more lenient, which is why it works in PC responsive
   // testing but the banner appears blank on a real phone). Force-mute via the
   // DOM property and retry play() once the data is ready.
+  // Chạy lại khi <video> được mount/đổi nguồn (banner do admin cấu hình có thể đến sau lần render đầu).
   useEffect(() => {
     const video = videoBannerRef.current;
     if (!video) return;
@@ -604,7 +618,7 @@ export default function App() {
       video.removeEventListener("loadeddata", tryPlay);
       video.removeEventListener("canplay", tryPlay);
     };
-  }, []);
+  }, [showBannerVideo, bannerVideoSrc]);
 
   useEffect(() => {
     const routeView = pathToView(location.pathname);
@@ -1449,20 +1463,36 @@ export default function App() {
                 }}
                 className="inset-0"
               >
-                <video
-                  ref={videoBannerRef}
-                  src={heroBannerMp4}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="auto"
-                  className="w-full h-full object-cover relative z-10"
-                  style={{
-                    transform: "translateZ(0)",
-                    backfaceVisibility: "hidden",
-                  }}
-                />
+                {bannerIsImage && !settingsPending && (
+                  <img
+                    src={customBannerUrl}
+                    alt="Banner"
+                    draggable={false}
+                    onError={() => setBannerLoadFailed(true)}
+                    className="w-full h-full object-cover relative z-10"
+                  />
+                )}
+                {showBannerVideo && (
+                  <video
+                    key={bannerVideoSrc}
+                    ref={videoBannerRef}
+                    src={bannerVideoSrc}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    // File banner của admin hỏng/bị xoá => tự quay về banner mặc định thay vì để trống.
+                    onError={() => {
+                      if (customBannerUrl) setBannerLoadFailed(true);
+                    }}
+                    className="w-full h-full object-cover relative z-10"
+                    style={{
+                      transform: "translateZ(0)",
+                      backfaceVisibility: "hidden",
+                    }}
+                  />
+                )}
               </div>
             </div>
 

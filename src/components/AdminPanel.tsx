@@ -43,9 +43,12 @@ import {
   Home,
   Gift,
   Wallet,
+  KeyRound,
 } from "lucide-react";
 import EmptyState from "./EmptyState";
 import ConfirmDialog from "./ConfirmDialog";
+import BannerSettings from "./BannerSettings";
+import ResetPasswordModal from "./ResetPasswordModal";
 import { useToastStore } from "../store/useToastStore";
 
 interface AdminPanelProps {
@@ -154,6 +157,9 @@ export default function AdminPanel({
   const [giftSelectedUser, setGiftSelectedUser] = useState<AdminUser | null>(null);
   const [giftAmount, setGiftAmount] = useState<string>("");
   const [giftSubmitting, setGiftSubmitting] = useState(false);
+
+  // Đặt lại mật khẩu cho user quên mật khẩu
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
 
   // Pagination states
   const [txPage, setTxPage] = useState(1);
@@ -1071,6 +1077,12 @@ export default function AdminPanel({
             >
               <Gift className="w-3.5 h-3.5" /> TẶNG TIỀN CHO USER
             </button>
+            <button
+              onClick={() => setResetPasswordOpen(true)}
+              className="mt-2 w-full bg-amber-700 hover:bg-amber-600 text-amber-100 py-2 px-3 rounded-xl font-bold text-[10px] border border-amber-500/15 transition flex items-center justify-center gap-1 mx-auto"
+            >
+              <KeyRound className="w-3.5 h-3.5" /> ĐẶT LẠI MẬT KHẨU USER
+            </button>
           </div>
         </div>
 
@@ -1758,6 +1770,9 @@ export default function AdminPanel({
                   </button> */}
                 </div>
               </div>
+
+              {/* Banner có form/nút riêng nên đặt NGOÀI <form> bên dưới (không lồng form) */}
+              {contentSubTab === "home" && <BannerSettings />}
 
               {contentSubTab === "home" && (
                 <form
@@ -2898,6 +2913,9 @@ export default function AdminPanel({
           </div>
         </div>
       )}
+      {/* Modal: Đặt lại mật khẩu cho user */}
+      {resetPasswordOpen && <ResetPasswordModal onClose={() => setResetPasswordOpen(false)} />}
+
       {/* Modal: Tặng tiền cho user */}
       {giftModalOpen && (
         <div
